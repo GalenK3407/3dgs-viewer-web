@@ -121,6 +121,38 @@
     #editStats {
       margin-top: 8px; font-size: 12px; color: #ccc; line-height: 1.5;
     }
+    #modelPanel {
+      position: static; color: white;
+      font-family: monospace; font-size: 13px; background: rgba(0,0,0,0.82);
+      padding: 12px 16px; border-radius: 8px; z-index: 20;
+      width: 100%; box-sizing: border-box;
+      flex: 0 0 auto;
+      border: 1px solid rgba(115, 255, 183, 0.35);
+    }
+    #modelPanel h3 { margin: 0 0 8px 0; font-size: 15px; color: #73ffb7; }
+    #modelPanel button {
+      width: 100%; padding: 8px; cursor: pointer;
+      background: #24453a; color: white; border: 1px solid #4f7d68; border-radius: 4px;
+      font-weight: bold; font-size: 12px; line-height: 1.2; min-height: 36px;
+      box-sizing: border-box;
+    }
+    #modelPanel button:hover { background: #2b5647; }
+    #modelPanel button:disabled { background: #23312b; color: #788d83; cursor: not-allowed; }
+    #modelStatus {
+      margin-top: 8px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #d5f6e6;
+    }
+    #modelStatus strong {
+      color: #f4fff9;
+    }
+    #modelHint {
+      margin-top: 8px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #b8d8ca;
+    }
     #shotPanel {
       position: static; color: white;
       font-family: monospace; font-size: 13px; background: rgba(0,0,0,0.82);
@@ -167,6 +199,105 @@
       border-radius: 50%; pointer-events: none; z-index: 30; display: none;
       transform: translate(-50%, -50%);
     }
+    #emptyState {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(520px, calc(100vw - 32px));
+      padding: 28px 24px;
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at top, rgba(115,255,183,0.12), transparent 60%),
+        rgba(6, 12, 16, 0.88);
+      border: 1px solid rgba(115,255,183,0.24);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+      color: white;
+      font-family: monospace;
+      text-align: center;
+      z-index: 15;
+      box-sizing: border-box;
+      backdrop-filter: blur(10px);
+    }
+    #emptyState[hidden] {
+      display: none;
+    }
+    #emptyState h2 {
+      margin: 0 0 10px 0;
+      font-size: 24px;
+      color: #f3fff9;
+    }
+    #emptyState p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #c2d7cd;
+    }
+    #emptyStateActions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+    #emptyState button {
+      min-width: 180px;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 999px;
+      background: #73ffb7;
+      color: #062015;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    #emptyState button:disabled {
+      background: #4c6258;
+      color: #9db4aa;
+      cursor: not-allowed;
+    }
+    #emptyStateMeta {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #9fb5ab;
+    }
+    #dragOverlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 40;
+      background: rgba(6, 12, 16, 0.64);
+      backdrop-filter: blur(4px);
+      pointer-events: none;
+    }
+    #dragOverlay.active {
+      display: flex;
+    }
+    #dragOverlayCard {
+      width: min(520px, calc(100vw - 32px));
+      padding: 28px 24px;
+      border-radius: 18px;
+      border: 2px dashed rgba(115,255,183,0.72);
+      background: rgba(7, 18, 14, 0.82);
+      color: white;
+      font-family: monospace;
+      text-align: center;
+      box-sizing: border-box;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+    }
+    #dragOverlayCard strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 20px;
+      color: #73ffb7;
+    }
+    #dragOverlayCard span {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #d2e3db;
+    }
   </style>
   <script type="importmap">
     {
@@ -181,6 +312,8 @@
   <div id="info">
     <div class="infoTitle">快捷操作</div>
     <div class="infoGrid">
+      <div class="infoLabel">模型</div>
+      <div>打开文件 / 拖拽加载 / 支持 .ply .splat .spz .ksplat</div>
       <div class="infoLabel">导航</div>
       <div>左拖旋转 / 右拖平移 / 滚轮缩放 / 方向键转向 / R+左拖环绕</div>
       <div class="infoLabel">镜头</div>
@@ -196,7 +329,31 @@
   <div id="crosshair"></div>
   <div id="selectionRect"></div>
   <div id="brushCursor"></div>
+  <input id="modelInput" type="file" accept=".ply,.splat,.spz,.ksplat" hidden>
+  <div id="emptyState">
+    <h2>上传一个 3DGS 模型开始</h2>
+    <p id="emptyStateText">当前未加载模型。点击按钮选择本地文件，或直接把 3DGS 文件拖到页面中。</p>
+    <div id="emptyStateActions">
+      <button id="emptyStateOpenBtn">打开本地文件</button>
+    </div>
+    <div id="emptyStateMeta">支持格式：.ply / .splat / .spz / .ksplat</div>
+  </div>
+  <div id="dragOverlay">
+    <div id="dragOverlayCard">
+      <strong>拖拽模型到这里</strong>
+      <span>松开鼠标后立即加载本地 3DGS 文件</span>
+    </div>
+  </div>
   <div id="leftColumn">
+    <div id="modelPanel">
+      <h3>模型加载</h3>
+      <button id="openModelBtn">打开文件</button>
+      <div id="modelStatus">
+        <div><strong>当前状态:</strong> <span id="modelStatusLabel">等待上传</span></div>
+        <div><strong>当前模型:</strong> <span id="modelNameLabel">未加载</span></div>
+      </div>
+      <div id="modelHint">支持点击选择或直接拖拽本地 3DGS 文件到页面。上传后会重置当前镜头规划与删除编辑状态。</div>
+    </div>
     <div id="shotPanel">
       <h3>镜头规划</h3>
       <div id="shotModeBadge">当前模式: 浏览</div>
@@ -267,6 +424,6 @@
     <div id="exportProgress" style="display:none"><div id="exportProgressBar"></div></div>
     <div id="exportStatus"></div>
   </div>
-  <script type="module" src="./viewer.js?v=20260421-release-cleanup"></script>
+  <script type="module" src="./viewer.js?v=20260422-local-upload"></script>
 </body>
 </html>

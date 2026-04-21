@@ -21,6 +21,7 @@ const SHOT_POINT_SELECTED_COLOR = 0xffc857;
 const SHOT_PIVOT_COLOR = 0x58f0ff;
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const SHOT_PICK_SCREEN_RADIUS_PX = 22;
+const MODEL_FILE_EXTENSIONS = new Set(["ply", "splat", "spz", "ksplat"]);
 
 const EXPORT_RESOLUTIONS = {
   "1080": { width: 1920, height: 1080 },
@@ -47,8 +48,18 @@ scene.add(shotHelperRoot);
 const crosshairEl = document.getElementById("crosshair");
 const selectionRectEl = document.getElementById("selectionRect");
 const brushCursorEl = document.getElementById("brushCursor");
+const modelInputEl = document.getElementById("modelInput");
+const emptyStateEl = document.getElementById("emptyState");
+const emptyStateTextEl = document.getElementById("emptyStateText");
+const emptyStateOpenBtn = document.getElementById("emptyStateOpenBtn");
+const dragOverlayEl = document.getElementById("dragOverlay");
 const kfCountEl = document.getElementById("kfCount");
 const playStatusEl = document.getElementById("playStatus");
+
+const openModelBtn = document.getElementById("openModelBtn");
+const modelStatusLabelEl = document.getElementById("modelStatusLabel");
+const modelNameLabelEl = document.getElementById("modelNameLabel");
+const modelHintEl = document.getElementById("modelHint");
 
 const resSelect = document.getElementById("resSelect");
 const fpsInput = document.getElementById("fpsInput");
@@ -179,20 +190,239 @@ const keyboardLookState = {
   down: false
 };
 
-const splats = new SplatMesh({
-  url: "./model.ply",
-  onLoad: (mesh) => {
-    alignSplatSceneToWorldUp(mesh);
-    const focus = autoFocusMesh(mesh);
-    initializeEditing(mesh, focus);
-  }
-});
-splats.quaternion.set(1, 0, 0, 0);
-scene.add(splats);
+const modelState = {
+  ready: false,
+  loading: false,
+  activeName: "未加载",
+  pendingName: "",
+  error: "",
+  requestToken: 0,
+  dragDepth: 0,
+  dragActive: false
+};
+
+let splats = null;
 
 function isInputFocused() {
   const active = document.activeElement;
   return active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName);
+}
+
+function getModelFileExtension(name = "") {
+  const match = /\.([^.]+)$/.exec(name.toLowerCase());
+  return match ? match[1] : "";
+}
+
+function isSupportedModelFileName(name) {
+  return MODEL_FILE_EXTENSIONS.has(getModelFileExtension(name));
+}
+
+function isModelInteractionBlocked() {
+  return exporting || modelState.loading;
+}
+
+function disposeCurrentModel() {
+  if (!splats) {
+    return;
+  }
+  scene.remove(splats);
+  splats.dispose();
+  splats = null;
+}
+
+function clearEditState() {
+  editState.ready = false;
+  editState.editMode = false;
+  editState.activeTool = "picker";
+  editState.selectionHighlightEnabled = true;
+  editState.savingScene = false;
+  editState.numSplats = 0;
+  editState.worldCenters = null;
+  editState.baseCenters = null;
+  editState.baseScales = null;
+  editState.baseQuaternions = null;
+  editState.baseOpacities = null;
+  editState.baseColors = null;
+  editState.splatData = null;
+  editState.selectedMask = null;
+  editState.hiddenMask = null;
+  editState.selectedCount = 0;
+  editState.hiddenCount = 0;
+  editState.undoStack.length = 0;
+  editState.redoStack.length = 0;
+  editState.projectionX = null;
+  editState.projectionY = null;
+  editState.projectionDepth = null;
+  editState.projectionVisible = null;
+  saveStatusEl.textContent = "";
+}
+
+function clearShotState() {
+  shotState.plannerMode = false;
+  shotState.points.length = 0;
+  shotState.selectedIndex = -1;
+  shotState.helperActivated = false;
+  shotState.helperVisible = true;
+  hasShotPivot = false;
+  keyframes.length = 0;
+  updatePathLine();
+  updateShotVisuals();
+}
+
+function resetModelBoundState() {
+  stopPlayback("");
+  hasOrbitTarget = false;
+  orbitTransition = 0;
+  endPointerAction();
+  updateBrushCursor();
+  clearShotState();
+  clearEditState();
+}
+
+function setDragOverlayActive(active) {
+  modelState.dragActive = active;
+  dragOverlayEl.classList.toggle("active", active && !exporting);
+}
+
+function updateModelUi() {
+  const hasModel = modelState.ready && !!splats;
+  const visibleName = modelState.loading && modelState.pendingName ? modelState.pendingName : modelState.activeName;
+
+  openModelBtn.disabled = isModelInteractionBlocked();
+  emptyStateOpenBtn.disabled = isModelInteractionBlocked();
+
+  if (modelState.loading) {
+    modelStatusLabelEl.textContent = "加载中";
+  } else if (hasModel) {
+    modelStatusLabelEl.textContent = "已加载";
+  } else if (modelState.error) {
+    modelStatusLabelEl.textContent = "加载失败";
+  } else {
+    modelStatusLabelEl.textContent = "等待上传";
+  }
+
+  modelNameLabelEl.textContent = visibleName;
+
+  if (modelState.loading) {
+    modelHintEl.textContent = `正在加载 ${modelState.pendingName}，完成后会自动重置当前镜头规划与删除编辑状态。`;
+  } else if (modelState.error) {
+    modelHintEl.textContent = modelState.error;
+  } else if (hasModel) {
+    modelHintEl.textContent = "支持点击选择或拖拽本地 3DGS 文件到页面。加载新模型后会重置当前镜头规划与删除编辑状态。";
+  } else {
+    modelHintEl.textContent = "支持点击选择或直接拖拽本地 3DGS 文件到页面。加载后即可进入镜头规划与删除编辑。";
+  }
+
+  emptyStateEl.hidden = hasModel;
+  if (!hasModel) {
+    if (modelState.loading) {
+      emptyStateTextEl.textContent = `正在加载 ${modelState.pendingName}，请稍候。`;
+    } else if (modelState.error) {
+      emptyStateTextEl.textContent = `${modelState.error} 点击按钮重新选择，或直接拖拽新的模型文件到页面。`;
+    } else {
+      emptyStateTextEl.textContent = "当前未加载模型。点击按钮选择本地文件，或直接把 3DGS 文件拖到页面中。";
+    }
+  }
+
+  dragOverlayEl.classList.toggle("active", modelState.dragActive && !exporting);
+}
+
+function setModelError(message) {
+  modelState.loading = false;
+  modelState.pendingName = "";
+  modelState.error = message;
+  updateModelUi();
+  updateEditUi();
+  updateShotUi();
+}
+
+function applyLoadedModel(mesh, name) {
+  resetModelBoundState();
+  disposeCurrentModel();
+
+  splats = mesh;
+  scene.add(splats);
+  alignSplatSceneToWorldUp(mesh);
+  const focus = autoFocusMesh(mesh);
+  initializeEditing(mesh, focus);
+
+  modelState.ready = true;
+  modelState.loading = false;
+  modelState.pendingName = "";
+  modelState.activeName = name;
+  modelState.error = "";
+
+  updateModelUi();
+  updateEditUi();
+  updateShotUi();
+}
+
+async function loadModelFromFile(file) {
+  if (!file || exporting) {
+    return;
+  }
+  if (!isSupportedModelFileName(file.name)) {
+    setModelError(`不支持的模型格式: ${file.name}`);
+    return;
+  }
+
+  if (playing) {
+    stopPlayback("⏸ 已停止");
+  }
+
+  const requestToken = modelState.requestToken + 1;
+  modelState.requestToken = requestToken;
+  modelState.loading = true;
+  modelState.pendingName = file.name;
+  modelState.error = "";
+  updateModelUi();
+  updateEditUi();
+  updateShotUi();
+
+  let mesh = null;
+  try {
+    mesh = new SplatMesh({
+      stream: file.stream(),
+      streamLength: file.size,
+      fileName: file.name
+    });
+    mesh.quaternion.set(1, 0, 0, 0);
+    await mesh.initialized;
+  } catch (error) {
+    if (mesh) {
+      mesh.dispose();
+    }
+    if (requestToken !== modelState.requestToken) {
+      return;
+    }
+    setModelError(`加载模型失败: ${error.message}`);
+    return;
+  }
+
+  if (requestToken !== modelState.requestToken) {
+    mesh.dispose();
+    return;
+  }
+
+  applyLoadedModel(mesh, file.name);
+}
+
+function openModelPicker() {
+  if (isModelInteractionBlocked()) {
+    return;
+  }
+  modelInputEl.click();
+}
+
+function getFirstFile(fileList) {
+  if (!fileList || fileList.length === 0) {
+    return null;
+  }
+  return fileList[0] ?? null;
+}
+
+function eventHasFiles(event) {
+  return Array.from(event.dataTransfer?.types ?? []).includes("Files");
 }
 
 function opacityToLogit(opacity) {
@@ -1046,15 +1276,16 @@ function updateShotUi() {
   const hasSelection = shotState.selectedIndex >= 0 && shotState.selectedIndex < shotState.points.length;
   const plannerLabel = shotState.plannerMode ? "镜头规划" : editState.editMode ? "删除编辑" : "浏览";
   const canInsert = hasModel && hasShotPivot;
+  const blocked = isModelInteractionBlocked();
 
   shotPanelEl.classList.toggle("active", shotState.plannerMode);
   shotModeBadgeEl.textContent = `当前模式: ${plannerLabel}`;
   togglePlannerBtn.textContent = shotState.plannerMode ? "退出规划" : "进入规划";
   togglePlannerBtn.classList.toggle("active", shotState.plannerMode);
-  togglePlannerBtn.disabled = !hasModel || exporting;
-  insertShotBtn.disabled = !canInsert || exporting;
-  deleteShotBtn.disabled = !hasSelection || exporting;
-  clearShotsBtn.disabled = shotState.points.length === 0 || exporting;
+  togglePlannerBtn.disabled = !hasModel || blocked;
+  insertShotBtn.disabled = !canInsert || blocked;
+  deleteShotBtn.disabled = !hasSelection || blocked;
+  clearShotsBtn.disabled = shotState.points.length === 0 || blocked;
 
   kfCountEl.textContent = `镜头点: ${shotState.points.length}`;
   shotPointCountEl.textContent = String(shotState.points.length);
@@ -1064,8 +1295,10 @@ function updateShotUi() {
     : "未设置";
   deleteModeLabelEl.textContent = shotState.plannerMode ? "删除镜头点" : editState.editMode ? "删除 splats" : "未激活";
 
-  if (!hasModel) {
-    shotHintEl.textContent = "等待模型加载完成。";
+  if (modelState.loading) {
+    shotHintEl.textContent = "模型加载中，镜头规划暂不可用。";
+  } else if (!hasModel) {
+    shotHintEl.textContent = "请先上传并加载一个模型。";
   } else if (!hasShotPivot) {
     shotHintEl.textContent = "双击模型设置固定镜头中心点。";
   } else if (shotState.plannerMode) {
@@ -1080,7 +1313,7 @@ function updateShotUi() {
     shotHintEl.textContent = "进入规划后可选中镜头点预览；双击可重设中心。";
   }
 
-  exportBtn.disabled = exporting || shotState.points.length < 2;
+  exportBtn.disabled = blocked || shotState.points.length < 2;
 }
 
 function updateSelectionRect(clientX, clientY) {
@@ -1305,11 +1538,12 @@ function updateEditUi() {
   const hasModel = editState.ready;
   const hasVisibleSplats = hasModel && editState.hiddenCount < editState.numSplats;
   const usingRadius = editState.activeTool === "brush";
+  const blocked = isModelInteractionBlocked();
   radiusLabelEl.textContent = "画笔半径 (px)";
-  toggleEditBtn.disabled = !hasModel || exporting;
-  radiusInput.disabled = !hasModel || !usingRadius || exporting;
-  resetViewBtn.disabled = !hasVisibleSplats || exporting;
-  saveSceneBtn.disabled = !hasVisibleSplats || editState.savingScene || exporting;
+  toggleEditBtn.disabled = !hasModel || blocked;
+  radiusInput.disabled = !hasModel || !usingRadius || blocked;
+  resetViewBtn.disabled = !hasVisibleSplats || blocked;
+  saveSceneBtn.disabled = !hasVisibleSplats || editState.savingScene || blocked;
   saveSceneBtn.textContent = editState.savingScene ? "保存中..." : "保存 .ply (Ctrl+S)";
 
   radiusInput.min = "1";
@@ -1319,16 +1553,18 @@ function updateEditUi() {
   for (const button of toolButtons) {
     const isActive = button.dataset.tool === editState.activeTool;
     button.classList.toggle("active", isActive);
-    button.disabled = !hasModel || exporting;
+    button.disabled = !hasModel || blocked;
   }
 
-  clearSelectionBtn.disabled = !hasModel || editState.selectedCount === 0 || exporting;
-  undoBtn.disabled = !hasModel || editState.undoStack.length === 0 || exporting;
-  redoBtn.disabled = !hasModel || editState.redoStack.length === 0 || exporting;
-  deleteSelectionBtn.disabled = !hasModel || editState.selectedCount === 0 || exporting;
+  clearSelectionBtn.disabled = !hasModel || editState.selectedCount === 0 || blocked;
+  undoBtn.disabled = !hasModel || editState.undoStack.length === 0 || blocked;
+  redoBtn.disabled = !hasModel || editState.redoStack.length === 0 || blocked;
+  deleteSelectionBtn.disabled = !hasModel || editState.selectedCount === 0 || blocked;
 
-  if (!hasModel) {
-    editHintEl.textContent = "等待模型加载完成。";
+  if (modelState.loading) {
+    editHintEl.textContent = "模型加载中，删除编辑暂不可用。";
+  } else if (!hasModel) {
+    editHintEl.textContent = "请先上传并加载一个模型。";
   } else if (shotState.plannerMode) {
     editHintEl.textContent = "镜头规划开启中，按 E 可切回删除编辑。";
   } else if (!editState.editMode) {
@@ -1338,7 +1574,6 @@ function updateEditUi() {
   } else {
     editHintEl.textContent = "左键刷选，[ / ] 调半径。Shift 加选，Ctrl/Cmd 减选。";
   }
-
 }
 
 function setActiveTool(tool) {
@@ -1488,7 +1723,7 @@ function applyVisualStateForIndex(index) {
 }
 
 function syncSplatDataAfterMutation() {
-  if (!editState.splatData) {
+  if (!editState.splatData || !splats) {
     return;
   }
 
@@ -1833,6 +2068,9 @@ function pickShotPoint(event) {
 }
 
 function pickScenePoint(event) {
+  if (!splats) {
+    return null;
+  }
   const ndc = new THREE.Vector2(
     (event.clientX / innerWidth) * 2 - 1,
     -(event.clientY / innerHeight) * 2 + 1
@@ -2171,6 +2409,9 @@ function handleWindowMouseUp(event) {
 }
 
 function handleCanvasDoubleClick(event) {
+  if (exporting || !editState.ready || modelState.loading) {
+    return;
+  }
   const hit = pickScenePoint(event);
   if (!hit) {
     return;
@@ -2179,6 +2420,10 @@ function handleCanvasDoubleClick(event) {
 }
 
 function handleCanvasWheel(event) {
+  if (exporting) {
+    event.preventDefault();
+    return;
+  }
   applyDolly(event);
   event.preventDefault();
 }
@@ -2329,6 +2574,7 @@ async function exportVideo() {
   exportBtn.disabled = true;
   exportProgress.style.display = "block";
   exportStatusEl.textContent = "加载编码器...";
+  updateModelUi();
   updateEditUi();
   updateShotUi();
 
@@ -2338,6 +2584,7 @@ async function exportVideo() {
   } catch (error) {
     exportStatusEl.textContent = `加载 mp4-muxer 失败: ${error.message}`;
     exporting = false;
+    updateModelUi();
     updateEditUi();
     updateShotUi();
     return;
@@ -2506,6 +2753,7 @@ async function exportVideo() {
     orbitTarget.copy(originalOrbitTarget);
     hasOrbitTarget = originalHasOrbitTarget;
     exporting = false;
+    updateModelUi();
     updateEditUi();
     updateShotUi();
   }
@@ -2559,6 +2807,14 @@ function handleGlobalKeyDown(event) {
 
   if (setKeyboardLookKeyState(event.key, true)) {
     event.preventDefault();
+    return;
+  }
+
+  if (modelState.loading) {
+    return;
+  }
+
+  if (!editState.ready) {
     return;
   }
 
@@ -2657,6 +2913,17 @@ toggleEditBtn.addEventListener("click", () => {
   setEditMode(!editState.editMode);
 });
 
+openModelBtn.addEventListener("click", openModelPicker);
+emptyStateOpenBtn.addEventListener("click", openModelPicker);
+modelInputEl.addEventListener("change", () => {
+  const file = getFirstFile(modelInputEl.files);
+  modelInputEl.value = "";
+  if (!file) {
+    return;
+  }
+  void loadModelFromFile(file);
+});
+
 togglePlannerBtn.addEventListener("click", () => {
   if (!editState.ready) {
     return;
@@ -2718,6 +2985,49 @@ renderer.domElement.addEventListener("mouseleave", () => {
 
 window.addEventListener("mousemove", handleWindowMouseMove);
 window.addEventListener("mouseup", handleWindowMouseUp);
+window.addEventListener("dragenter", (event) => {
+  if (exporting || !eventHasFiles(event)) {
+    return;
+  }
+  event.preventDefault();
+  modelState.dragDepth += 1;
+  setDragOverlayActive(true);
+});
+window.addEventListener("dragover", (event) => {
+  if (exporting || !eventHasFiles(event)) {
+    return;
+  }
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "copy";
+  setDragOverlayActive(true);
+});
+window.addEventListener("dragleave", (event) => {
+  if (exporting || !eventHasFiles(event)) {
+    return;
+  }
+  event.preventDefault();
+  modelState.dragDepth = Math.max(0, modelState.dragDepth - 1);
+  if (modelState.dragDepth === 0) {
+    setDragOverlayActive(false);
+  }
+});
+window.addEventListener("drop", (event) => {
+  if (exporting || !eventHasFiles(event)) {
+    return;
+  }
+  event.preventDefault();
+  modelState.dragDepth = 0;
+  setDragOverlayActive(false);
+  const file = getFirstFile(event.dataTransfer.files);
+  if (!file) {
+    return;
+  }
+  void loadModelFromFile(file);
+});
+window.addEventListener("dragend", () => {
+  modelState.dragDepth = 0;
+  setDragOverlayActive(false);
+});
 window.addEventListener("keydown", handleGlobalKeyDown);
 window.addEventListener("keyup", handleGlobalKeyUp);
 window.addEventListener("resize", handleResize);
@@ -2725,9 +3035,12 @@ window.addEventListener("blur", () => {
   resetKeyboardLookState();
   endPointerAction();
   updateBrushCursor();
+  modelState.dragDepth = 0;
+  setDragOverlayActive(false);
 });
 
 updateFrameInfo();
+updateModelUi();
 updateEditUi();
 updateShotUi();
 
