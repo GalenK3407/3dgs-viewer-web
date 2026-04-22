@@ -9,17 +9,15 @@
 
 无需复杂的后端配置，一行命令启动，即刻拥有本地 3DGS 工作流。
 
+## 📸 界面预览
+
+![Overview](./docs/images/overview.png)
+
 ---
 
 ## 🎥 动态演示
 
 <img src="./assets/demo.gif" alt="3DGS Studio demo" width="100%" />
-
----
-
-## 📸 界面预览
-
-![Overview](./docs/images/overview.png)
 
 ---
 
