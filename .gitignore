@@ -1,2 +1,7 @@
 .DS_Store
 model.ply
+*.ply
+*.splat
+*.spz
+*.ksplat
+*.zip
