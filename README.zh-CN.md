@@ -37,13 +37,11 @@
 
 ## 界面预览
 
-> 当前预览资源仍然是中文界面版本，因此保留 `-zh-CN` 后缀，方便后续补充英文截图资源。
-
-![Overview](./docs/images/overview-zh-CN.png)
+![Overview](./docs/images/overview-zn-CN.png)
 
 ## 动态演示
 
-<img src="./assets/demo-zh-CN.gif" alt="3DGS Studio demo" width="100%" />
+<img src="./assets/video-zh-CN.gif" alt="3DGS Studio demo" width="100%" />
 
 ## 功能亮点
 

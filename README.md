@@ -37,13 +37,11 @@
 
 ## Interface Preview
 
-> Current preview assets still show the Chinese UI and are intentionally kept with a `-zh-CN` suffix until the English screenshots are replaced.
-
-![Overview](./docs/images/overview-zh-CN.png)
+![Overview](./docs/images/overview.png)
 
 ## Demo
 
-<img src="./assets/demo-zh-CN.gif" alt="3DGS Studio demo" width="100%" />
+<img src="./assets/video.gif" alt="3DGS Studio demo" width="100%" />
 
 ## Feature Highlights
 
