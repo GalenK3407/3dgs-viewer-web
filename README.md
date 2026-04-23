@@ -98,10 +98,9 @@ Then open `http://localhost:8080`.
 
 ## Roadmap
 
-- [ ] Load remote model files by URL for lightweight scene sharing
-- [ ] Compare multiple scenes for before / after review
-- [ ] Introduce a modern build setup such as Vite and split `viewer.js` into modules
-- [ ] Add stronger editing tools such as bounding-box deletion and ROI extraction
+- [ ] Add automatic floating-splat filtering for cleaner scenes with less manual cleanup
+- [ ] Add preset camera curves and best-path generation for faster shot planning
+- [ ] Add per-camera pose fine-tuning for precise adjustment of individual viewpoints
 
 ## Acknowledgements
 
