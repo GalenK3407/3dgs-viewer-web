@@ -5,9 +5,6 @@ const HIGHLIGHT_RGB = [255, 196, 64];
 const PICK_THRESHOLD_PX = 12;
 const BRUSH_APPLY_INTERVAL_MS = 50;
 const HISTORY_LIMIT = 50;
-const ORBIT_SPEED = 0.005;
-const ORBIT_TRANSITION_SPEED = 1.0;
-const LOOK_SPEED = 0.004;
 const KEYBOARD_LOOK_SPEED = 1.8;
 const HIDDEN_SPLAT_SCALE = 1e-5;
 const SH_C0 = 0.28209479177387814;
@@ -20,6 +17,8 @@ const SHOT_POINT_COLOR = 0x71cdff;
 const SHOT_POINT_SELECTED_COLOR = 0xffc857;
 const SHOT_PIVOT_COLOR = 0x58f0ff;
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
+const ARCBALL_EPSILON = 1e-6;
+const SAFE_LOOK_AT_UP_DOT_LIMIT = 0.98;
 const SHOT_PICK_SCREEN_RADIUS_PX = 22;
 const MODEL_FILE_EXTENSIONS = new Set(["ply", "splat", "spz", "ksplat"]);
 const UI_CANVAS_FONT_FAMILY = '"Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", sans-serif';
@@ -133,9 +132,9 @@ const I18N = {
     "info.model.label": "Model",
     "info.model.value": "Open file / Drag and drop / Supports .ply .splat .spz .ksplat",
     "info.navigation.label": "Navigation",
-    "info.navigation.value": "Left drag rotate / Right drag pan / Wheel dolly / Arrow keys look / R+Left drag orbit",
+    "info.navigation.value": "Left drag arcball rotate / Right drag pan / Wheel dolly / Arrow keys look / R+Left drag orbit",
     "info.shot.label": "Shots",
-    "info.shot.value": "Double-click to set pivot / Preview shot points in planner / + insert / Del delete / C clear / P play",
+    "info.shot.value": "Double-click sets orbit pivot / Preview shot points in planner / + insert / Del delete / C clear / P play",
     "info.edit.label": "Edit",
     "info.edit.value": "E toggle / 1 Picker / 2 Brush / Esc clear / Del delete / Ctrl+Z/Y undo redo",
     "empty.title": "Load a 3DGS Model to Start",
@@ -174,11 +173,11 @@ const I18N = {
     "shot.pivotLabel": "Pivot",
     "shot.hint.loading": "Model loading. Shot planning is temporarily unavailable.",
     "shot.hint.noModel": "Upload and load a model first.",
-    "shot.hint.noPivot": "Double-click the model to set a fixed pivot.",
+    "shot.hint.noPivot": "Double-click the model to set an orbit pivot.",
     "shot.hint.noPoints": "No shot points yet. Press + to insert from the current view. Playback/export requires at least 2 points.",
     "shot.hint.previewReady": "Click a shot point to preview it, or click empty space to clear the selection. + insert, Del delete, P preview.",
     "shot.hint.previewOnePoint": "Click a shot point to preview it. + insert. Playback/export requires at least 2 points.",
-    "shot.hint.browse": "Enter planner mode to preview shot points; double-click to reset the pivot.",
+    "shot.hint.browse": "Enter planner mode to preview shot points; double-click to reset the orbit pivot.",
     "edit.title": "Splat Editing",
     "edit.resetView": "Reset View",
     "edit.toolPicker": "Picker (1)",
@@ -248,9 +247,9 @@ const I18N = {
     "info.model.label": "模型",
     "info.model.value": "打开文件 / 拖拽加载 / 支持 .ply .splat .spz .ksplat",
     "info.navigation.label": "导航",
-    "info.navigation.value": "左拖旋转 / 右拖平移 / 滚轮缩放 / 方向键转向 / R+左拖环绕",
+    "info.navigation.value": "左拖全向旋转 / 右拖平移 / 滚轮缩放 / 方向键转向 / R+左拖环绕",
     "info.shot.label": "镜头",
-    "info.shot.value": "双击设中心 / 规划模式点位预览 / + 插点 / Del 删点 / C 清空 / P 播放",
+    "info.shot.value": "双击设环绕中心 / 规划模式点位预览 / + 插点 / Del 删点 / C 清空 / P 播放",
     "info.edit.label": "编辑",
     "info.edit.value": "E 切换 / 1 点选 / 2 刷选 / Esc 清选 / Del 删除 / Ctrl+Z/Y 撤销重做",
     "empty.title": "上传一个 3DGS 模型开始",
@@ -289,11 +288,11 @@ const I18N = {
     "shot.pivotLabel": "中心",
     "shot.hint.loading": "模型加载中，镜头规划暂不可用。",
     "shot.hint.noModel": "请先上传并加载一个模型。",
-    "shot.hint.noPivot": "双击模型设置固定镜头中心点。",
+    "shot.hint.noPivot": "双击模型设置环绕中心。",
     "shot.hint.noPoints": "当前无镜头点，按 + 从当前机位插点。少于 2 个点时无法播放或导出。",
     "shot.hint.previewReady": "点镜头点预览，点空白取消。+ 插点，Del 删点，P 预览。",
     "shot.hint.previewOnePoint": "点镜头点预览，+ 插点。少于 2 个点时无法播放或导出。",
-    "shot.hint.browse": "进入规划后点镜头点预览；双击重设中心。",
+    "shot.hint.browse": "进入规划后点镜头点预览；双击重设环绕中心。",
     "edit.title": "编辑删除",
     "edit.resetView": "重置视角",
     "edit.toolPicker": "点选 (1)",
@@ -364,17 +363,21 @@ controls.pointerControls.enable = false;
 const raycaster = new THREE.Raycaster();
 const orbitTarget = new THREE.Vector3();
 const shotPivot = new THREE.Vector3();
-const startQuaternion = new THREE.Quaternion();
 const tempMatrix = new THREE.Matrix4();
 const tempVecA = new THREE.Vector3();
 const tempVecB = new THREE.Vector3();
 const tempVecC = new THREE.Vector3();
 const tempQuat = new THREE.Quaternion();
 const tempQuatB = new THREE.Quaternion();
+const tempQuatC = new THREE.Quaternion();
 const tempColor = new THREE.Color();
 const tempVec2A = new THREE.Vector2();
 const tempVec2B = new THREE.Vector2();
 const tempViewportSize = new THREE.Vector2();
+const arcballLastVector = new THREE.Vector3();
+const arcballAxis = new THREE.Vector3();
+const safeLookAtForward = new THREE.Vector3();
+const safeLookAtUp = new THREE.Vector3();
 
 const viewGizmoCtx = viewGizmoEl.getContext("2d");
 const VIEW_GIZMO_SIZE = 132;
@@ -397,7 +400,6 @@ let playbackPreviewLockedAspect = false;
 let exporting = false;
 let hasOrbitTarget = false;
 let hasShotPivot = false;
-let orbitTransition = 0;
 let rKeyDown = false;
 
 const shotState = {
@@ -640,7 +642,6 @@ function clearShotState() {
 function resetModelBoundState() {
   stopPlayback();
   hasOrbitTarget = false;
-  orbitTransition = 0;
   endPointerAction();
   updateBrushCursor();
   clearShotState();
@@ -1049,6 +1050,72 @@ function projectWorldToScreen(worldPoint, target = new THREE.Vector2()) {
   return target;
 }
 
+function projectPointerToArcball(clientX, clientY, target = new THREE.Vector3(), { yDown = false } = {}) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const width = rect.width || renderer.domElement.clientWidth || innerWidth;
+  const height = rect.height || renderer.domElement.clientHeight || innerHeight;
+  const size = Math.max(Math.min(width, height), 1);
+  const x = ((clientX - rect.left) - width * 0.5) * 2 / size;
+  const yFromCenter = ((clientY - rect.top) - height * 0.5) * 2 / size;
+  const y = yDown ? yFromCenter : -yFromCenter;
+  const radiusSq = x * x + y * y;
+
+  if (radiusSq <= 1) {
+    target.set(x, y, Math.sqrt(1 - radiusSq));
+  } else {
+    const invRadius = 1 / Math.sqrt(radiusSq);
+    target.set(x * invRadius, y * invRadius, 0);
+  }
+
+  return target.normalize();
+}
+
+function setArcballDeltaQuaternion(fromVector, toVector, target = new THREE.Quaternion()) {
+  const dot = THREE.MathUtils.clamp(fromVector.dot(toVector), -1, 1);
+  if (dot > 1 - ARCBALL_EPSILON) {
+    return target.identity();
+  }
+
+  if (dot < -1 + ARCBALL_EPSILON) {
+    arcballAxis.set(1, 0, 0).cross(fromVector);
+    if (arcballAxis.lengthSq() < ARCBALL_EPSILON) {
+      arcballAxis.set(0, 1, 0).cross(fromVector);
+    }
+    arcballAxis.normalize();
+    return target.setFromAxisAngle(arcballAxis, Math.PI);
+  }
+
+  return target.setFromUnitVectors(fromVector, toVector).normalize();
+}
+
+function getCameraLocalDeltaAsWorld(localDelta, target = new THREE.Quaternion()) {
+  tempQuatC.copy(camera.quaternion).invert();
+  return target.copy(camera.quaternion).multiply(localDelta).multiply(tempQuatC).normalize();
+}
+
+function safeLookAtQuaternion(position, targetPosition, target = new THREE.Quaternion(), fallbackQuaternion = camera.quaternion) {
+  safeLookAtForward.copy(targetPosition).sub(position);
+  if (safeLookAtForward.lengthSq() < ARCBALL_EPSILON) {
+    return target.copy(fallbackQuaternion).normalize();
+  }
+
+  safeLookAtForward.normalize();
+  safeLookAtUp.copy(WORLD_UP);
+
+  if (Math.abs(safeLookAtForward.dot(safeLookAtUp)) > SAFE_LOOK_AT_UP_DOT_LIMIT) {
+    safeLookAtUp.set(0, 1, 0).applyQuaternion(fallbackQuaternion).normalize();
+  }
+  if (Math.abs(safeLookAtForward.dot(safeLookAtUp)) > SAFE_LOOK_AT_UP_DOT_LIMIT) {
+    safeLookAtUp.set(1, 0, 0).applyQuaternion(fallbackQuaternion).normalize();
+  }
+  if (Math.abs(safeLookAtForward.dot(safeLookAtUp)) > SAFE_LOOK_AT_UP_DOT_LIMIT) {
+    safeLookAtUp.set(0, 0, 1);
+  }
+
+  tempMatrix.lookAt(position, targetPosition, safeLookAtUp);
+  return target.setFromRotationMatrix(tempMatrix).normalize();
+}
+
 function getWorldUnitsPerPixel(worldPoint) {
   const viewportHeight = Math.max(renderer.domElement.clientHeight || innerHeight, 1);
   const distance = Math.max(camera.position.distanceTo(worldPoint), 0.1);
@@ -1403,6 +1470,10 @@ function updateBrushCursor(clientX = null, clientY = null) {
 }
 
 function getShotPointPosition(shotPoint, target = new THREE.Vector3()) {
+  if (shotPoint.position instanceof THREE.Vector3) {
+    return target.copy(shotPoint.position);
+  }
+
   target.set(
     shotPivot.x + Math.cos(shotPoint.azimuth) * shotPoint.radius,
     shotPivot.y + shotPoint.height,
@@ -1412,23 +1483,17 @@ function getShotPointPosition(shotPoint, target = new THREE.Vector3()) {
 }
 
 function getShotPointQuaternion(position, target = new THREE.Quaternion()) {
-  const lookAtMatrix = new THREE.Matrix4().lookAt(position, shotPivot, camera.up);
-  target.setFromRotationMatrix(lookAtMatrix);
-  return target;
+  return safeLookAtQuaternion(position, shotPivot, target);
 }
 
 function getShotPointViewQuaternion(shotPoint, position, target = new THREE.Quaternion()) {
-  if (!shotState.pivotExplicit && shotPoint.quaternion instanceof THREE.Quaternion) {
+  if (shotPoint.quaternion instanceof THREE.Quaternion) {
     return target.copy(shotPoint.quaternion);
   }
   return getShotPointQuaternion(position, target);
 }
 
-function getPlaybackQuaternionAt(t, position, target = new THREE.Quaternion()) {
-  if (shotState.pivotExplicit && hasShotPivot) {
-    return getShotPointQuaternion(position, target);
-  }
-
+function getPlaybackQuaternionAt(t, _position, target = new THREE.Quaternion()) {
   if (keyframes.length === 0) {
     return target.copy(camera.quaternion);
   }
@@ -1709,14 +1774,12 @@ function createShotPointFromCurrentCamera() {
   const radius = Math.max(SHOT_MIN_RADIUS, Math.hypot(offsetX, offsetZ));
 
   const shotPoint = {
+    position: camera.position.clone(),
     radius,
     azimuth: normalizeAngle(Math.atan2(offsetZ, offsetX)),
-    height: offsetY
+    height: offsetY,
+    quaternion: camera.quaternion.clone()
   };
-
-  if (!shotState.pivotExplicit) {
-    shotPoint.quaternion = camera.quaternion.clone();
-  }
 
   return shotPoint;
 }
@@ -2843,8 +2906,7 @@ function beginOrbit(event) {
   pointerState.action = "orbit";
   pointerState.lastX = event.clientX;
   pointerState.lastY = event.clientY;
-  orbitTransition = 0;
-  startQuaternion.copy(camera.quaternion);
+  projectPointerToArcball(event.clientX, event.clientY, arcballLastVector, { yDown: true });
 
   const projected = orbitTarget.clone().project(camera);
   crosshairEl.style.left = `${((projected.x + 1) / 2) * innerWidth}px`;
@@ -2853,36 +2915,16 @@ function beginOrbit(event) {
 }
 
 function updateOrbit(event) {
-  const deltaX = event.clientX - pointerState.lastX;
-  const deltaY = event.clientY - pointerState.lastY;
+  projectPointerToArcball(event.clientX, event.clientY, tempVecA, { yDown: true });
+  setArcballDeltaQuaternion(arcballLastVector, tempVecA, tempQuat);
+  getCameraLocalDeltaAsWorld(tempQuat, tempQuatB);
+
+  tempVecC.copy(camera.position).sub(orbitTarget).applyQuaternion(tempQuatB);
+  camera.position.copy(orbitTarget).add(tempVecC);
+  camera.quaternion.premultiply(tempQuatB).normalize();
+  arcballLastVector.copy(tempVecA);
   pointerState.lastX = event.clientX;
   pointerState.lastY = event.clientY;
-
-  const offset = camera.position.clone().sub(orbitTarget);
-  const azimuth = -deltaX * ORBIT_SPEED;
-  const cosA = Math.cos(azimuth);
-  const sinA = Math.sin(azimuth);
-  const newX = offset.x * cosA - offset.z * sinA;
-  const newZ = offset.x * sinA + offset.z * cosA;
-  offset.x = newX;
-  offset.z = newZ;
-
-  if (deltaY !== 0) {
-    tempVecA.set(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
-    offset.applyAxisAngle(tempVecA, -deltaY * ORBIT_SPEED);
-  }
-
-  camera.position.copy(orbitTarget).add(offset);
-
-  const lookAtMatrix = new THREE.Matrix4().lookAt(camera.position, orbitTarget, camera.up);
-  tempQuat.setFromRotationMatrix(lookAtMatrix);
-
-  if (orbitTransition < 1) {
-    orbitTransition = Math.min(1, orbitTransition + ORBIT_TRANSITION_SPEED * 0.016);
-    camera.quaternion.slerpQuaternions(startQuaternion, tempQuat, orbitTransition);
-  } else {
-    camera.quaternion.copy(tempQuat);
-  }
 }
 
 function beginPan(event) {
@@ -2895,24 +2937,16 @@ function beginRotate(event) {
   pointerState.action = "rotate";
   pointerState.lastX = event.clientX;
   pointerState.lastY = event.clientY;
+  projectPointerToArcball(event.clientX, event.clientY, arcballLastVector);
 }
 
 function updateRotate(event) {
-  const deltaX = event.clientX - pointerState.lastX;
-  const deltaY = event.clientY - pointerState.lastY;
+  projectPointerToArcball(event.clientX, event.clientY, tempVecA);
+  setArcballDeltaQuaternion(tempVecA, arcballLastVector, tempQuat);
+  camera.quaternion.multiply(tempQuat).normalize();
+  arcballLastVector.copy(tempVecA);
   pointerState.lastX = event.clientX;
   pointerState.lastY = event.clientY;
-
-  if (deltaX !== 0) {
-    tempQuat.setFromAxisAngle(WORLD_UP, -deltaX * LOOK_SPEED);
-    camera.quaternion.premultiply(tempQuat);
-  }
-  if (deltaY !== 0) {
-    tempVecA.set(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
-    tempQuat.setFromAxisAngle(tempVecA, -deltaY * LOOK_SPEED);
-    camera.quaternion.premultiply(tempQuat);
-  }
-  camera.quaternion.normalize();
 }
 
 function resetKeyboardLookState() {
@@ -2952,14 +2986,13 @@ function updateKeyboardLook(deltaTime) {
   const lookAmount = KEYBOARD_LOOK_SPEED * deltaTime;
 
   if (yawInput !== 0) {
-    tempQuat.setFromAxisAngle(WORLD_UP, yawInput * lookAmount);
-    camera.quaternion.premultiply(tempQuat);
+    tempQuat.setFromAxisAngle(tempVecA.set(0, 1, 0), yawInput * lookAmount);
+    camera.quaternion.multiply(tempQuat);
   }
 
   if (pitchInput !== 0) {
-    tempVecA.set(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
-    tempQuat.setFromAxisAngle(tempVecA, pitchInput * lookAmount);
-    camera.quaternion.premultiply(tempQuat);
+    tempQuat.setFromAxisAngle(tempVecA.set(1, 0, 0), pitchInput * lookAmount);
+    camera.quaternion.multiply(tempQuat);
   }
   camera.quaternion.normalize();
 }

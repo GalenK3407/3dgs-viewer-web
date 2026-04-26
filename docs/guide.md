@@ -8,14 +8,14 @@ This guide covers startup, interaction, shot planning, splat cleanup, and MP4 ex
 
 `3DGS Viewer` is a browser-based 3D Gaussian Splatting viewer and light editor built on top of `Spark.js` and `Three.js`. The current version focuses on two main workflows:
 
-- Pivot-centered shot planning with MP4 export
+- Pivot-assisted shot planning with MP4 export
 - In-browser splat deletion editing with `.ply` save
 
 The project no longer follows a manual "drag camera and record keyframes" workflow. The current planner is built around shot points:
 
-- Double-click the model to set a fixed `Pivot`
+- Double-click the model to set an orbit/editing `Pivot`
 - Plan the path with discrete shot points
-- Keep every shot point and interpolated frame looking at the `Pivot`
+- Preserve shot point world positions and camera orientations
 - Use the same sampling logic for `P` preview and MP4 export
 
 ## 2. Requirements and Startup
@@ -72,8 +72,9 @@ http://localhost:8080
 
 ### 3.3 Set the Pivot
 
-- Double-click the model to set the fixed shot `Pivot`
-- After that, shot planning, path preview, and export all work around this center
+- Double-click the model to set the orbit/editing `Pivot`
+- Resetting the `Pivot` does not move or retarget existing shot points
+- Future shot points use the current `Pivot` for helper parameters and orbiting
 - Regular panning and dollying do not move the `Pivot`
 
 ### 3.4 Enter Shot Planner Mode
@@ -93,8 +94,9 @@ http://localhost:8080
 Notes:
 
 - Playback and export require at least `2` shot points
-- All shot points face the center by default
-- Interpolated frames between shot points also keep `lookAt(Pivot)`
+- New shot points preserve the current world position and camera orientation
+- Interpolated frames slerp between stored camera orientations
+- Resetting the pivot does not move or retarget existing shot points
 
 ### 3.6 Export Video
 
@@ -110,12 +112,12 @@ Notes:
 | --- | --- |
 | Click `Open File` | Choose a local 3DGS model |
 | Drag a file into the page | Load a local 3DGS model |
-| Left mouse drag | Rotate the camera |
+| Left mouse drag | Arcball-rotate the camera |
 | Right mouse drag | Pan |
 | Mouse wheel | Dolly |
 | Arrow keys | Rotate / pitch the view |
-| `R` + left mouse drag | Orbit around the current center |
-| Double-click the model | Set or reset the fixed shot pivot |
+| `R` + left mouse drag | Arcball-orbit around the current center |
+| Double-click the model | Set or reset the pivot for orbiting and future shot points |
 
 ### 4.2 Shot Planner
 
@@ -163,20 +165,22 @@ The meaning of `Del` depends on the current mode:
 
 ## 5. Core Mechanics
 
-### 5.1 Pivot-Centered Shot Planning
+### 5.1 Pivot-Assisted Shot Planning
 
 The shot system is driven by:
 
-- `shotPivot`: the fixed center point
+- `shotPivot`: the orbit/editing center used for future inserts
 - `shotPoints`: the array of planned shot points
 
-Each shot point stores a parameterized position instead of a manually edited quaternion:
+Each new shot point stores its world position, pivot-relative helper parameters, and the captured camera orientation:
 
+- `position`
 - `radius`
 - `azimuth`
 - `height`
+- `quaternion`
 
-The real camera position is computed from `shotPivot + polar coordinates`, and camera orientation is generated through `lookAt(shotPivot)`.
+The stored world `position` is used for playback and export, so resetting `shotPivot` does not move existing shot points. The pivot remains an editing aid for orbiting and for computing helper parameters on future inserts. Legacy points without a stored `position` fall back to `shotPivot + polar coordinates`, and legacy points without a stored `quaternion` fall back to a pole-safe `lookAt(shotPivot)`.
 
 ### 5.2 Preview and Export Stay in Sync
 

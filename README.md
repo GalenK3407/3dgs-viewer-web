@@ -31,7 +31,7 @@
 | Workflow | What You Get |
 | --- | --- |
 | Local-first loading | Drag in `.ply`, `.splat`, `.spz`, or `.ksplat` files directly, with no backend setup |
-| Pivot-based planning | Double-click to set a stable focal center, then build camera motion around it |
+| Pivot-assisted planning | Double-click to set an orbit/editing center while existing shot poses stay stable |
 | Cleanup inside the viewer | Remove noisy splats manually or preview automatic floating-splat candidates before applying |
 | Export-ready output | Reuse the same planned path for both live preview and MP4 export |
 
@@ -47,9 +47,9 @@
 
 | Area | Highlights |
 | --- | --- |
-| Shot Planning | Pivot-based camera focus, discrete shot points, path preview, MP4 export |
+| Shot Planning | Pivot-assisted camera planning, stable shot poses, path preview, MP4 export |
 | Splat Editing | `Picker`, `Brush`, automatic floater candidate analysis, multi-step undo/redo, visible-splat `.ply` save |
-| Viewer Workflow | Local uploads, drag and drop, world-up alignment, keyboard-friendly controls |
+| Viewer Workflow | Local uploads, drag and drop, arcball-style navigation, keyboard-friendly controls |
 | Presentation Loop | Load, clean, plan, preview, and export in one place |
 
 ## Quick Start
@@ -70,7 +70,7 @@ Then open `http://localhost:8080`.
 ### 3. First 60 Seconds
 
 1. Click `Open File`, or drag a local 3DGS model into the page.
-2. Double-click the subject you want to focus on to set the `Pivot`.
+2. Double-click the subject you want to orbit around to set the `Pivot`.
 3. Enter planner mode and press `+` to add shot points from the current camera view.
 4. Press `P` to preview the path and refine the motion.
 5. Press `E` to enter edit mode and clean noisy splats with `Picker`, `Brush`, or `Analyze Floaters`.
