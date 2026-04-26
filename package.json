@@ -1,0 +1,23 @@
+{
+  "name": "3dgs-viewer-web",
+  "version": "1.0.0",
+  "description": "Browser workstation for 3D Gaussian Splatting cleanup, shot planning, and MP4 export.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "python3 -m http.server 8080",
+    "check:js": "node --check viewer.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GalenK3407/3dgs-viewer-web.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/GalenK3407/3dgs-viewer-web/issues"
+  },
+  "homepage": "https://github.com/GalenK3407/3dgs-viewer-web#readme",
+  "devDependencies": {
+    "playwright": "^1.59.1"
+  }
+}

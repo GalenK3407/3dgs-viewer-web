@@ -156,6 +156,10 @@ The editing panel also includes `Analyze Floaters`. It previews likely large flo
 
 Analysis only selects candidates. `Apply Filter` hides those selected candidates and keeps the result undoable through `Ctrl+Z`.
 
+For drone map scenes, `Analyze BBox` estimates the dominant 2D map orientation, then builds robust percentile bounds in the oriented `U-V` plane. A splat is selected when its center or scale-aware extent crosses either oriented axis bound, so the filter catches side strips, corner outliers, and large splats whose centers remain near the boundary. `Apply BBox Filter` hides the selected candidates and remains undoable.
+
+`Analyze Backside` reuses the BBox orientation and works only inside that 2D map boundary. It divides the map into a `U-V` grid, estimates a local surface height from each cell's `Y` percentile, automatically compares the lower-Y and higher-Y sides, and chooses the side with the stronger outlier extension as the backside. Every splat whose center plus scale-aware extent passes the local surface threshold on that side is selected. Sparse cells fall back to nearby surfaces or the global surface. `Debug Surface` previews the local surface references, `Debug Backside` previews the thresholded backside set, and `Apply Backside Filter` hides the candidates.
+
 The meaning of `Del` depends on the current mode:
 
 - In shot planner mode, `Del` deletes a shot point
@@ -196,6 +200,8 @@ Typical use cases:
 
 - Remove floating noise
 - Preview and apply automatic large-floater filtering
+- Preview and apply BBox cleanup for drone map scenes
+- Preview and apply backside floater cleanup for drone map scenes
 - Trim scene edges
 - Save a cleaner presentation version
 

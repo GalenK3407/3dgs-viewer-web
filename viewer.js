@@ -93,6 +93,23 @@ const cleanupOpacityFloorInput = document.getElementById("cleanupOpacityFloorInp
 const analyzeFloatersBtn = document.getElementById("analyzeFloatersBtn");
 const applyFloaterFilterBtn = document.getElementById("applyFloaterFilterBtn");
 const cleanupStatusEl = document.getElementById("cleanupStatus");
+const mapBBoxPercentileInput = document.getElementById("mapBBoxPercentileInput");
+const mapBBoxMarginInput = document.getElementById("mapBBoxMarginInput");
+const mapBBoxExtentFactorInput = document.getElementById("mapBBoxExtentFactorInput");
+const debugMapBBoxBtn = document.getElementById("debugMapBBoxBtn");
+const applyMapBBoxBtn = document.getElementById("applyMapBBoxBtn");
+const mapCleanupStatusEl = document.getElementById("mapCleanupStatus");
+const backsideGridResolutionInput = document.getElementById("backsideGridResolutionInput");
+const backsideMinCellSamplesInput = document.getElementById("backsideMinCellSamplesInput");
+const backsideSurfacePercentileInput = document.getElementById("backsideSurfacePercentileInput");
+const backsideDepthRatioInput = document.getElementById("backsideDepthRatioInput");
+const backsideExtentFactorInput = document.getElementById("backsideExtentFactorInput");
+const backsideDirectionSelect = document.getElementById("backsideDirectionSelect");
+const debugBacksideSurfaceBtn = document.getElementById("debugBacksideSurfaceBtn");
+const debugBacksideDepthBtn = document.getElementById("debugBacksideDepthBtn");
+const analyzeBacksideBtn = document.getElementById("analyzeBacksideBtn");
+const applyBacksideFilterBtn = document.getElementById("applyBacksideFilterBtn");
+const backsideCleanupStatusEl = document.getElementById("backsideCleanupStatus");
 const saveSceneBtn = document.getElementById("saveSceneBtn");
 const saveStatusEl = document.getElementById("saveStatus");
 const activeToolLabelEl = document.getElementById("activeToolLabel");
@@ -201,6 +218,7 @@ const I18N = {
     "edit.hint.enter": "Press E to enter edit mode. Left click selects, right drag and wheel navigate.",
     "edit.hint.picker": "Click to pick, drag to box-select. Shift adds, Ctrl/Cmd subtracts.",
     "edit.hint.brush": "Left drag to brush-select. [ / ] changes radius. Shift adds, Ctrl/Cmd subtracts.",
+    "cleanup.floatersTitle": "Floating Splat Filter",
     "cleanup.scalePercentile": "Scale Percentile",
     "cleanup.minScaleRatio": "Min Scale Ratio",
     "cleanup.neighborRadius": "Neighbor Radius Ratio",
@@ -212,6 +230,37 @@ const I18N = {
     "cleanup.status.analyzed": "Selected {count} candidates from {largeCount} large splats. Scale >= {scaleThreshold}, radius {radius}.",
     "cleanup.status.none": "No floating-splat candidates found.",
     "cleanup.status.applied": "Filtered {count} floating-splat candidates.",
+    "mapCleanup.title": "BBox Filter",
+    "mapCleanup.bboxPercentile": "BBox Trim %",
+    "mapCleanup.bboxMargin": "BBox Margin Ratio",
+    "mapCleanup.extentFactor": "BBox Extent Factor",
+    "mapCleanup.debugBBox": "Analyze BBox",
+    "mapCleanup.apply": "Apply BBox Filter",
+    "mapCleanup.status.ready": "Ready to analyze the oriented 2D BBox.",
+    "mapCleanup.status.bbox": "BBox debug selected {count} scale-aware splats outside oriented 2D bounds (U: {xCount}, V: {zCount}; extent factor {extentFactor}).",
+    "mapCleanup.status.none": "No BBox candidates found.",
+    "mapCleanup.status.applied": "Filtered {count} BBox candidates.",
+    "backsideCleanup.title": "Backside Floater Filter",
+    "backsideCleanup.gridResolution": "Grid Resolution",
+    "backsideCleanup.minCellSamples": "Cell Min Samples",
+    "backsideCleanup.surfacePercentile": "Surface Percentile",
+    "backsideCleanup.depthRatio": "Backside Depth Ratio",
+    "backsideCleanup.extentFactor": "Splat Extent Factor",
+    "backsideCleanup.direction": "Backside Direction",
+    "backsideCleanup.direction.auto": "Auto",
+    "backsideCleanup.direction.lower": "Lower Y",
+    "backsideCleanup.direction.higher": "Higher Y",
+    "backsideCleanup.direction.both": "Both Sides",
+    "backsideCleanup.debugSurface": "Debug Surface",
+    "backsideCleanup.debugDepth": "Debug Backside",
+    "backsideCleanup.analyze": "Analyze Backside",
+    "backsideCleanup.apply": "Apply Backside Filter",
+    "backsideCleanup.status.ready": "Ready to analyze backside floaters inside the BBox.",
+    "backsideCleanup.status.surface": "Surface debug selected {count} reference splats across {cells} supported cells.",
+    "backsideCleanup.status.depth": "Backside debug selected {count} splats beyond the local surface by at least {depth}. Direction: {direction}. Fallback cells: {fallbackCells}.",
+    "backsideCleanup.status.analyzed": "Selected {count} backside candidates. Direction: {direction}, threshold {depth}, fallback cells {fallbackCells}.",
+    "backsideCleanup.status.none": "No backside floater candidates found.",
+    "backsideCleanup.status.applied": "Filtered {count} backside floater candidates.",
     "tool.picker": "Picker",
     "tool.brush": "Brush",
     "play.status.stopped": "Paused",
@@ -316,6 +365,7 @@ const I18N = {
     "edit.hint.enter": "按 E 进入编辑。左键选择，右键拖拽与滚轮导航。",
     "edit.hint.picker": "单击选点，拖拽框选。Shift 加选，Ctrl/Cmd 减选。",
     "edit.hint.brush": "左键刷选，[ / ] 调半径。Shift 加选，Ctrl/Cmd 减选。",
+    "cleanup.floatersTitle": "漂浮球过滤",
     "cleanup.scalePercentile": "尺度分位数",
     "cleanup.minScaleRatio": "最小尺度比例",
     "cleanup.neighborRadius": "邻域半径比例",
@@ -327,6 +377,37 @@ const I18N = {
     "cleanup.status.analyzed": "已从 {largeCount} 个大尺度 splats 中选中 {count} 个候选。尺度 >= {scaleThreshold}，半径 {radius}。",
     "cleanup.status.none": "未发现漂浮 splat 候选。",
     "cleanup.status.applied": "已过滤 {count} 个漂浮 splat 候选。",
+    "mapCleanup.title": "BBox 过滤",
+    "mapCleanup.bboxPercentile": "BBox 裁剪 %",
+    "mapCleanup.bboxMargin": "BBox 边距比例",
+    "mapCleanup.extentFactor": "BBox 范围倍率",
+    "mapCleanup.debugBBox": "分析 BBox",
+    "mapCleanup.apply": "应用 BBox 过滤",
+    "mapCleanup.status.ready": "可分析有向二维 BBox。",
+    "mapCleanup.status.bbox": "BBox 调试选中 {count} 个尺度感知的有向二维边界外 splats（U: {xCount}, V: {zCount}；范围倍率 {extentFactor}）。",
+    "mapCleanup.status.none": "未发现 BBox 候选。",
+    "mapCleanup.status.applied": "已过滤 {count} 个 BBox 候选。",
+    "backsideCleanup.title": "背面浮点过滤",
+    "backsideCleanup.gridResolution": "Grid 分辨率",
+    "backsideCleanup.minCellSamples": "Cell 最少样本",
+    "backsideCleanup.surfacePercentile": "表面分位数",
+    "backsideCleanup.depthRatio": "背面深度比例",
+    "backsideCleanup.extentFactor": "Splat 范围倍率",
+    "backsideCleanup.direction": "背面方向",
+    "backsideCleanup.direction.auto": "自动",
+    "backsideCleanup.direction.lower": "低 Y 侧",
+    "backsideCleanup.direction.higher": "高 Y 侧",
+    "backsideCleanup.direction.both": "两侧",
+    "backsideCleanup.debugSurface": "调试表面",
+    "backsideCleanup.debugDepth": "调试背面",
+    "backsideCleanup.analyze": "分析背面",
+    "backsideCleanup.apply": "应用背面过滤",
+    "backsideCleanup.status.ready": "可分析 BBox 内部的背面浮点。",
+    "backsideCleanup.status.surface": "表面调试选中 {count} 个参考 splats，覆盖 {cells} 个有效 cell。",
+    "backsideCleanup.status.depth": "背面调试选中 {count} 个沿局部表面外侧偏离至少 {depth} 的 splats。方向：{direction}。兜底 cell：{fallbackCells}。",
+    "backsideCleanup.status.analyzed": "已选中 {count} 个背面候选。方向：{direction}，阈值 {depth}，兜底 cell {fallbackCells}。",
+    "backsideCleanup.status.none": "未发现背面浮点候选。",
+    "backsideCleanup.status.applied": "已过滤 {count} 个背面浮点候选。",
     "tool.picker": "点选",
     "tool.brush": "刷选",
     "play.status.stopped": "已停止",
@@ -439,6 +520,10 @@ const editState = {
   hiddenCount: 0,
   cleanupCandidateCount: 0,
   cleanupLastStats: null,
+  mapCleanupCandidateCount: 0,
+  mapCleanupLastResult: null,
+  backsideCleanupCandidateCount: 0,
+  backsideCleanupLastResult: null,
   undoStack: [],
   redoStack: [],
   projectionX: null,
@@ -482,6 +567,8 @@ const uiMessageState = {
   playStatus: { key: "", params: {} },
   saveStatus: { key: "", params: {} },
   cleanupStatus: { key: "", params: {} },
+  mapCleanupStatus: { key: "", params: {} },
+  backsideCleanupStatus: { key: "", params: {} },
   exportStatus: { key: "", params: {} }
 };
 
@@ -507,6 +594,10 @@ function renderUiMessage(slot) {
     saveStatusEl.textContent = text;
   } else if (slot === "cleanupStatus") {
     cleanupStatusEl.textContent = text;
+  } else if (slot === "mapCleanupStatus") {
+    mapCleanupStatusEl.textContent = text;
+  } else if (slot === "backsideCleanupStatus") {
+    backsideCleanupStatusEl.textContent = text;
   } else if (slot === "exportStatus") {
     exportStatusEl.textContent = text;
   }
@@ -516,6 +607,8 @@ function renderAllUiMessages() {
   renderUiMessage("playStatus");
   renderUiMessage("saveStatus");
   renderUiMessage("cleanupStatus");
+  renderUiMessage("mapCleanupStatus");
+  renderUiMessage("backsideCleanupStatus");
   renderUiMessage("exportStatus");
 }
 
@@ -613,6 +706,10 @@ function clearEditState() {
   editState.hiddenCount = 0;
   editState.cleanupCandidateCount = 0;
   editState.cleanupLastStats = null;
+  editState.mapCleanupCandidateCount = 0;
+  editState.mapCleanupLastResult = null;
+  editState.backsideCleanupCandidateCount = 0;
+  editState.backsideCleanupLastResult = null;
   editState.undoStack.length = 0;
   editState.redoStack.length = 0;
   editState.projectionX = null;
@@ -621,6 +718,8 @@ function clearEditState() {
   editState.projectionVisible = null;
   setUiMessage("saveStatus");
   setUiMessage("cleanupStatus");
+  setUiMessage("mapCleanupStatus");
+  setUiMessage("backsideCleanupStatus");
 }
 
 function clearShotState() {
@@ -2083,6 +2182,21 @@ function updateEditUi() {
   cleanupOpacityFloorInput.disabled = !hasVisibleSplats || blocked;
   analyzeFloatersBtn.disabled = !hasVisibleSplats || blocked;
   applyFloaterFilterBtn.disabled = !hasVisibleSplats || editState.cleanupCandidateCount === 0 || blocked;
+  mapBBoxPercentileInput.disabled = !hasVisibleSplats || blocked;
+  mapBBoxMarginInput.disabled = !hasVisibleSplats || blocked;
+  mapBBoxExtentFactorInput.disabled = !hasVisibleSplats || blocked;
+  debugMapBBoxBtn.disabled = !hasVisibleSplats || blocked;
+  applyMapBBoxBtn.disabled = !hasVisibleSplats || editState.mapCleanupCandidateCount === 0 || blocked;
+  backsideGridResolutionInput.disabled = !hasVisibleSplats || blocked;
+  backsideMinCellSamplesInput.disabled = !hasVisibleSplats || blocked;
+  backsideSurfacePercentileInput.disabled = !hasVisibleSplats || blocked;
+  backsideDepthRatioInput.disabled = !hasVisibleSplats || blocked;
+  backsideExtentFactorInput.disabled = !hasVisibleSplats || blocked;
+  backsideDirectionSelect.disabled = !hasVisibleSplats || blocked;
+  debugBacksideSurfaceBtn.disabled = !hasVisibleSplats || blocked;
+  debugBacksideDepthBtn.disabled = !hasVisibleSplats || blocked;
+  analyzeBacksideBtn.disabled = !hasVisibleSplats || blocked;
+  applyBacksideFilterBtn.disabled = !hasVisibleSplats || editState.backsideCleanupCandidateCount === 0 || blocked;
 
   if (modelState.loading) {
     editHintEl.textContent = t("edit.hint.loading");
@@ -2193,6 +2307,10 @@ function initializeEditing(mesh, focus) {
   editState.hiddenCount = 0;
   editState.cleanupCandidateCount = 0;
   editState.cleanupLastStats = null;
+  editState.mapCleanupCandidateCount = 0;
+  editState.mapCleanupLastResult = null;
+  editState.backsideCleanupCandidateCount = 0;
+  editState.backsideCleanupLastResult = null;
   editState.undoStack.length = 0;
   editState.redoStack.length = 0;
   editState.projectionX = projectionX;
@@ -2201,6 +2319,8 @@ function initializeEditing(mesh, focus) {
   editState.projectionVisible = projectionVisible;
 
   setUiMessage("cleanupStatus", "cleanup.status.ready");
+  setUiMessage("mapCleanupStatus", "mapCleanup.status.ready");
+  setUiMessage("backsideCleanupStatus", "backsideCleanup.status.ready");
   updateEditUi();
   updateShotUi();
 }
@@ -2326,6 +2446,10 @@ function setSelected(index, selected, changedIndices) {
 function commitSelectionChange(changedIndices) {
   editState.cleanupCandidateCount = 0;
   editState.cleanupLastStats = null;
+  editState.mapCleanupCandidateCount = 0;
+  editState.mapCleanupLastResult = null;
+  editState.backsideCleanupCandidateCount = 0;
+  editState.backsideCleanupLastResult = null;
   applyVisualChanges(changedIndices);
   updateEditUi();
 }
@@ -2351,6 +2475,10 @@ function hideSplatIndices(indices, type = "delete") {
 
   editState.cleanupCandidateCount = 0;
   editState.cleanupLastStats = null;
+  editState.mapCleanupCandidateCount = 0;
+  editState.mapCleanupLastResult = null;
+  editState.backsideCleanupCandidateCount = 0;
+  editState.backsideCleanupLastResult = null;
   editState.undoStack.push({ type, indices: Uint32Array.from(deletedIndices) });
   if (editState.undoStack.length > HISTORY_LIMIT) {
     editState.undoStack.shift();
@@ -2556,6 +2684,10 @@ function analyzeFloatingSplats() {
     setSelected(index, true, changedIndices);
   }
   editState.cleanupCandidateCount = candidates.length;
+  editState.mapCleanupCandidateCount = 0;
+  editState.mapCleanupLastResult = null;
+  editState.backsideCleanupCandidateCount = 0;
+  editState.backsideCleanupLastResult = null;
   editState.cleanupLastStats = {
     largeCount,
     scaleThreshold,
@@ -2586,6 +2718,490 @@ function applyFloatingSplatFilter() {
   setUiMessage("cleanupStatus", "cleanup.status.applied", { count: candidates.length });
 }
 
+function getMapCleanupSettings() {
+  return {
+    bboxTrimPercent: readCleanupNumber(mapBBoxPercentileInput, 2, { min: 0, max: 20 }),
+    bboxMarginRatio: readCleanupNumber(mapBBoxMarginInput, 0.02, { min: 0, max: 0.5 }),
+    extentFactor: readCleanupNumber(mapBBoxExtentFactorInput, 2.5, { min: 0, max: 10 })
+  };
+}
+
+function percentileFromSorted(sortedValues, percentile) {
+  if (sortedValues.length === 0) {
+    return 0;
+  }
+  const clamped = THREE.MathUtils.clamp(percentile, 0, 100);
+  const index = Math.min(
+    sortedValues.length - 1,
+    Math.max(0, Math.floor((clamped / 100) * (sortedValues.length - 1)))
+  );
+  return sortedValues[index];
+}
+
+function projectMapPoint(index, orientation) {
+  const offset = index * 3;
+  const x = editState.worldCenters[offset];
+  const z = editState.worldCenters[offset + 2];
+  return {
+    x: x * orientation.cos + z * orientation.sin,
+    z: -x * orientation.sin + z * orientation.cos
+  };
+}
+
+function evaluateMapOrientationArea(rawX, rawZ, sampleCount, angle, trimPercent, tempX, tempZ) {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  for (let index = 0; index < sampleCount; index += 1) {
+    const x = rawX[index];
+    const z = rawZ[index];
+    tempX[index] = x * cos + z * sin;
+    tempZ[index] = -x * sin + z * cos;
+  }
+  tempX.sort();
+  tempZ.sort();
+  const minX = percentileFromSorted(tempX, trimPercent);
+  const maxX = percentileFromSorted(tempX, 100 - trimPercent);
+  const minZ = percentileFromSorted(tempZ, trimPercent);
+  const maxZ = percentileFromSorted(tempZ, 100 - trimPercent);
+  return Math.max(maxX - minX, 1e-6) * Math.max(maxZ - minZ, 1e-6);
+}
+
+function estimateMapOrientation(visibleIndices, trimPercent) {
+  const sampleLimit = Math.min(visibleIndices.length, 8192);
+  if (sampleLimit < 3) {
+    return { angle: 0, cos: 1, sin: 0 };
+  }
+
+  const rawX = new Float32Array(sampleLimit);
+  const rawZ = new Float32Array(sampleLimit);
+  const tempX = new Float32Array(sampleLimit);
+  const tempZ = new Float32Array(sampleLimit);
+  const step = Math.max(1, Math.floor(visibleIndices.length / sampleLimit));
+  let sampleCount = 0;
+
+  for (let offset = 0; offset < visibleIndices.length && sampleCount < sampleLimit; offset += step) {
+    const index = visibleIndices[offset];
+    const vecOffset = index * 3;
+    rawX[sampleCount] = editState.worldCenters[vecOffset];
+    rawZ[sampleCount] = editState.worldCenters[vecOffset + 2];
+    sampleCount += 1;
+  }
+
+  const robustTrim = THREE.MathUtils.clamp(Math.max(trimPercent, 0.5), 0.5, 20);
+  let bestAngle = 0;
+  let bestArea = Infinity;
+  const coarseStep = THREE.MathUtils.degToRad(2);
+  for (let angle = 0; angle < Math.PI; angle += coarseStep) {
+    const area = evaluateMapOrientationArea(rawX, rawZ, sampleCount, angle, robustTrim, tempX, tempZ);
+    if (area < bestArea) {
+      bestArea = area;
+      bestAngle = angle;
+    }
+  }
+
+  const fineStart = bestAngle - coarseStep;
+  const fineEnd = bestAngle + coarseStep;
+  const fineStep = THREE.MathUtils.degToRad(0.25);
+  for (let angle = fineStart; angle <= fineEnd; angle += fineStep) {
+    const normalizedAngle = ((angle % Math.PI) + Math.PI) % Math.PI;
+    const area = evaluateMapOrientationArea(rawX, rawZ, sampleCount, normalizedAngle, robustTrim, tempX, tempZ);
+    if (area < bestArea) {
+      bestArea = area;
+      bestAngle = normalizedAngle;
+    }
+  }
+
+  return { angle: bestAngle, cos: Math.cos(bestAngle), sin: Math.sin(bestAngle) };
+}
+
+function buildMapBBoxResult() {
+  if (!editState.ready) {
+    return null;
+  }
+
+  const visibleCount = getVisibleSplatCount();
+  if (visibleCount === 0) {
+    return null;
+  }
+
+  const settings = getMapCleanupSettings();
+  const visibleIndices = [];
+  for (let index = 0; index < editState.numSplats; index += 1) {
+    if (!editState.hiddenMask[index]) {
+      visibleIndices.push(index);
+    }
+  }
+
+  const orientation = estimateMapOrientation(visibleIndices, settings.bboxTrimPercent);
+  const projectedX = new Float32Array(visibleIndices.length);
+  const projectedZ = new Float32Array(visibleIndices.length);
+  let offset = 0;
+  for (const index of visibleIndices) {
+    const point = projectMapPoint(index, orientation);
+    projectedX[offset] = point.x;
+    projectedZ[offset] = point.z;
+    offset += 1;
+  }
+
+  projectedX.sort();
+  projectedZ.sort();
+  const trim = settings.bboxTrimPercent;
+  const rawMinX = percentileFromSorted(projectedX, trim);
+  const rawMaxX = percentileFromSorted(projectedX, 100 - trim);
+  const rawMinZ = percentileFromSorted(projectedZ, trim);
+  const rawMaxZ = percentileFromSorted(projectedZ, 100 - trim);
+  const rawWidth = Math.max(rawMaxX - rawMinX, 1e-6);
+  const rawDepth = Math.max(rawMaxZ - rawMinZ, 1e-6);
+  const rawDiagonal = Math.hypot(rawWidth, rawDepth);
+  const margin = rawDiagonal * settings.bboxMarginRatio;
+  const minX = rawMinX - margin;
+  const maxX = rawMaxX + margin;
+  const minZ = rawMinZ - margin;
+  const maxZ = rawMaxZ + margin;
+  const outsideBboxIndices = [];
+  let outsideXCount = 0;
+  let outsideZCount = 0;
+
+  for (const index of visibleIndices) {
+    const { x, z } = projectMapPoint(index, orientation);
+    const extent = getSplatMaxScale(index) * settings.extentFactor;
+    const outsideX = x - extent < minX || x + extent > maxX;
+    const outsideZ = z - extent < minZ || z + extent > maxZ;
+    if (outsideX || outsideZ) {
+      outsideBboxIndices.push(index);
+      outsideXCount += outsideX ? 1 : 0;
+      outsideZCount += outsideZ ? 1 : 0;
+    }
+  }
+
+  return {
+    settings,
+    visibleIndices,
+    orientation,
+    bounds: { minX, maxX, minZ, maxZ, width: maxX - minX, depth: maxZ - minZ, diagonal: rawDiagonal },
+    outsideXCount,
+    outsideZCount,
+    outsideBboxIndices
+  };
+}
+
+function previewMapCleanupIndices(indices, statusKey, params = {}, { allowApply = false, result = null } = {}) {
+  const changedIndices = clearSelection([]);
+  for (const index of indices) {
+    setSelected(index, true, changedIndices);
+  }
+
+  editState.cleanupCandidateCount = 0;
+  editState.mapCleanupCandidateCount = allowApply ? indices.length : 0;
+  editState.mapCleanupLastResult = result;
+  editState.backsideCleanupCandidateCount = 0;
+  editState.backsideCleanupLastResult = null;
+  applyVisualChanges(changedIndices);
+  setUiMessage("mapCleanupStatus", statusKey, params);
+  updateEditUi();
+}
+
+function debugMapBBox() {
+  const result = buildMapBBoxResult();
+  if (!result) {
+    return;
+  }
+  if (result.outsideBboxIndices.length === 0) {
+    previewMapCleanupIndices([], "mapCleanup.status.none", {}, { result });
+    return;
+  }
+
+  previewMapCleanupIndices(result.outsideBboxIndices, "mapCleanup.status.bbox", {
+    count: result.outsideBboxIndices.length,
+    xCount: result.outsideXCount,
+    zCount: result.outsideZCount,
+    extentFactor: formatCleanupNumber(result.settings.extentFactor)
+  }, { allowApply: true, result });
+}
+
+function applyMapBBoxFilter() {
+  if (!editState.ready || editState.mapCleanupCandidateCount === 0 || editState.selectedCount === 0) {
+    return;
+  }
+
+  const candidates = collectSelectedIndices();
+  hideSplatIndices(candidates, "bbox-filter");
+  setUiMessage("mapCleanupStatus", "mapCleanup.status.applied", { count: candidates.length });
+}
+
+function getBacksideCleanupSettings() {
+  const direction = ["auto", "lower", "higher", "both"].includes(backsideDirectionSelect.value)
+    ? backsideDirectionSelect.value
+    : "auto";
+  return {
+    gridResolution: readCleanupNumber(backsideGridResolutionInput, 160, { min: 16, max: 512, integer: true }),
+    minCellSamples: readCleanupNumber(backsideMinCellSamplesInput, 12, { min: 1, max: 1000, integer: true }),
+    surfacePercentile: readCleanupNumber(backsideSurfacePercentileInput, 50, { min: 1, max: 99 }),
+    depthRatio: readCleanupNumber(backsideDepthRatioInput, 0.1, { min: 0.0001, max: 0.5 }),
+    extentFactor: readCleanupNumber(backsideExtentFactorInput, 2.5, { min: 0, max: 10 }),
+    direction
+  };
+}
+
+function getSplatMaxScale(index) {
+  const offset = index * 3;
+  return Math.max(
+    editState.baseScales[offset],
+    editState.baseScales[offset + 1],
+    editState.baseScales[offset + 2]
+  );
+}
+
+function getBacksideDistance(surfaceY, splatY, direction) {
+  if (direction === "higher") {
+    return splatY - surfaceY;
+  }
+  if (direction === "both") {
+    return Math.abs(splatY - surfaceY);
+  }
+  return surfaceY - splatY;
+}
+
+function formatBacksideDirection(direction) {
+  return t(`backsideCleanup.direction.${direction}`);
+}
+
+function buildBacksideCleanupResult() {
+  if (!editState.ready) {
+    return null;
+  }
+
+  const mapResult = buildMapBBoxResult();
+  if (!mapResult) {
+    return null;
+  }
+
+  const settings = getBacksideCleanupSettings();
+  const resolution = settings.gridResolution;
+  const cellCount = resolution * resolution;
+  const cellYValues = Array.from({ length: cellCount }, () => []);
+  const indexCell = new Int32Array(editState.numSplats);
+  indexCell.fill(-1);
+  const insideIndices = [];
+  const insideYValues = [];
+  const bounds = mapResult.bounds;
+  const width = Math.max(bounds.maxX - bounds.minX, 1e-6);
+  const depth = Math.max(bounds.maxZ - bounds.minZ, 1e-6);
+
+  for (const index of mapResult.visibleIndices) {
+    const { x, z } = projectMapPoint(index, mapResult.orientation);
+    if (x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ) {
+      continue;
+    }
+
+    const cellX = Math.min(resolution - 1, Math.max(0, Math.floor(((x - bounds.minX) / width) * resolution)));
+    const cellZ = Math.min(resolution - 1, Math.max(0, Math.floor(((z - bounds.minZ) / depth) * resolution)));
+    const cell = cellZ * resolution + cellX;
+    indexCell[index] = cell;
+    insideIndices.push(index);
+    const y = editState.worldCenters[index * 3 + 1];
+    insideYValues.push(y);
+    cellYValues[cell].push(y);
+  }
+
+  if (insideIndices.length === 0) {
+    return null;
+  }
+
+  insideYValues.sort((a, b) => a - b);
+  const globalSurfaceY = percentileFromSorted(insideYValues, settings.surfacePercentile);
+  const rawSurfaceY = new Float32Array(cellCount);
+  rawSurfaceY.fill(Number.NaN);
+  let supportedCellCount = 0;
+
+  for (let cell = 0; cell < cellCount; cell += 1) {
+    const values = cellYValues[cell];
+    if (values.length < settings.minCellSamples) {
+      continue;
+    }
+    values.sort((a, b) => a - b);
+    const cellSurfaceY = percentileFromSorted(values, settings.surfacePercentile);
+    rawSurfaceY[cell] = cellSurfaceY;
+    supportedCellCount += 1;
+  }
+
+  const surfaceY = new Float32Array(cellCount);
+  for (let cell = 0; cell < cellCount; cell += 1) {
+    const localSurfaceY = rawSurfaceY[cell];
+    if (!Number.isNaN(localSurfaceY)) {
+      surfaceY[cell] = localSurfaceY;
+      continue;
+    }
+
+    const x = cell % resolution;
+    const z = Math.floor(cell / resolution);
+    let total = 0;
+    let samples = 0;
+    for (let radius = 1; radius <= 3 && samples === 0; radius += 1) {
+      for (let oz = -radius; oz <= radius; oz += 1) {
+        const nz = z + oz;
+        if (nz < 0 || nz >= resolution) {
+          continue;
+        }
+        for (let ox = -radius; ox <= radius; ox += 1) {
+          const nx = x + ox;
+          if (nx < 0 || nx >= resolution) {
+            continue;
+          }
+          const neighborSurfaceY = rawSurfaceY[nz * resolution + nx];
+          if (Number.isNaN(neighborSurfaceY)) {
+            continue;
+          }
+          total += neighborSurfaceY;
+          samples += 1;
+        }
+      }
+    }
+
+    surfaceY[cell] = samples > 0 ? total / samples : globalSurfaceY;
+  }
+
+  const depthThreshold = mapResult.bounds.diagonal * settings.depthRatio;
+  const directionScores = { lower: 0, higher: 0 };
+  const directionCounts = { lower: 0, higher: 0 };
+  const surfaceReferenceIndices = [];
+  const depthCandidateIndices = [];
+  const fallbackUsedCells = new Set();
+
+  for (const index of insideIndices) {
+    const cell = indexCell[index];
+    const cellSurfaceY = surfaceY[cell];
+    if (Number.isNaN(cellSurfaceY)) {
+      continue;
+    }
+    if (Number.isNaN(rawSurfaceY[cell])) {
+      fallbackUsedCells.add(cell);
+    }
+
+    const y = editState.worldCenters[index * 3 + 1];
+    const lowerDistance = getBacksideDistance(cellSurfaceY, y, "lower");
+    const higherDistance = getBacksideDistance(cellSurfaceY, y, "higher");
+    if (Math.abs(y - cellSurfaceY) <= depthThreshold) {
+      surfaceReferenceIndices.push(index);
+    }
+    if (lowerDistance >= depthThreshold) {
+      directionCounts.lower += 1;
+      directionScores.lower += lowerDistance / depthThreshold;
+    }
+    if (higherDistance >= depthThreshold) {
+      directionCounts.higher += 1;
+      directionScores.higher += higherDistance / depthThreshold;
+    }
+  }
+
+  const resolvedDirection = settings.direction === "auto"
+    ? directionScores.higher > directionScores.lower ? "higher" : "lower"
+    : settings.direction;
+
+  for (const index of insideIndices) {
+    const cell = indexCell[index];
+    const cellSurfaceY = surfaceY[cell];
+    if (Number.isNaN(cellSurfaceY)) {
+      continue;
+    }
+    const y = editState.worldCenters[index * 3 + 1];
+    const distanceBehind = getBacksideDistance(cellSurfaceY, y, resolvedDirection)
+      + getSplatMaxScale(index) * settings.extentFactor;
+    if (distanceBehind >= depthThreshold) {
+      depthCandidateIndices.push(index);
+    }
+  }
+
+  return {
+    settings,
+    mapResult,
+    supportedCellCount,
+    depthThreshold,
+    fallbackCellCount: fallbackUsedCells.size,
+    resolvedDirection,
+    directionScores,
+    directionCounts,
+    surfaceReferenceIndices,
+    depthCandidateIndices,
+    finalCandidates: depthCandidateIndices
+  };
+}
+
+function previewBacksideCleanupIndices(indices, statusKey, params = {}, { allowApply = false, result = null } = {}) {
+  const changedIndices = clearSelection([]);
+  for (const index of indices) {
+    setSelected(index, true, changedIndices);
+  }
+
+  editState.cleanupCandidateCount = 0;
+  editState.mapCleanupCandidateCount = 0;
+  editState.backsideCleanupCandidateCount = allowApply ? indices.length : 0;
+  editState.backsideCleanupLastResult = result;
+  applyVisualChanges(changedIndices);
+  setUiMessage("backsideCleanupStatus", statusKey, params);
+  updateEditUi();
+}
+
+function debugBacksideSurface() {
+  const result = buildBacksideCleanupResult();
+  if (!result) {
+    return;
+  }
+
+  previewBacksideCleanupIndices(result.surfaceReferenceIndices, "backsideCleanup.status.surface", {
+    count: result.surfaceReferenceIndices.length,
+    cells: result.supportedCellCount
+  }, { result });
+}
+
+function debugBacksideDepth() {
+  const result = buildBacksideCleanupResult();
+  if (!result) {
+    return;
+  }
+
+  if (result.depthCandidateIndices.length === 0) {
+    previewBacksideCleanupIndices([], "backsideCleanup.status.none", {}, { result });
+    return;
+  }
+
+  previewBacksideCleanupIndices(result.depthCandidateIndices, "backsideCleanup.status.depth", {
+    count: result.depthCandidateIndices.length,
+    depth: formatCleanupNumber(result.depthThreshold),
+    direction: formatBacksideDirection(result.resolvedDirection),
+    fallbackCells: result.fallbackCellCount
+  }, { result });
+}
+
+function analyzeBacksideFloaters() {
+  const result = buildBacksideCleanupResult();
+  if (!result) {
+    return;
+  }
+
+  if (result.finalCandidates.length === 0) {
+    previewBacksideCleanupIndices([], "backsideCleanup.status.none", {}, { result });
+    return;
+  }
+
+  previewBacksideCleanupIndices(result.finalCandidates, "backsideCleanup.status.analyzed", {
+    count: result.finalCandidates.length,
+    direction: formatBacksideDirection(result.resolvedDirection),
+    depth: formatCleanupNumber(result.depthThreshold),
+    fallbackCells: result.fallbackCellCount
+  }, { allowApply: true, result });
+}
+
+function applyBacksideFloaterFilter() {
+  if (!editState.ready || editState.backsideCleanupCandidateCount === 0 || editState.selectedCount === 0) {
+    return;
+  }
+
+  const candidates = collectSelectedIndices();
+  hideSplatIndices(candidates, "backside-floater-filter");
+  setUiMessage("backsideCleanupStatus", "backsideCleanup.status.applied", { count: candidates.length });
+}
+
 function undoDelete() {
   const action = editState.undoStack.pop();
   if (!action) {
@@ -2594,6 +3210,8 @@ function undoDelete() {
 
   editState.cleanupCandidateCount = 0;
   editState.cleanupLastStats = null;
+  editState.mapCleanupCandidateCount = 0;
+  editState.mapCleanupLastResult = null;
   const changedIndices = [];
   for (const index of action.indices) {
     if (editState.hiddenMask[index]) {
@@ -2616,6 +3234,8 @@ function redoDelete() {
 
   editState.cleanupCandidateCount = 0;
   editState.cleanupLastStats = null;
+  editState.mapCleanupCandidateCount = 0;
+  editState.mapCleanupLastResult = null;
   const changedIndices = [];
   for (const index of action.indices) {
     if (!editState.hiddenMask[index]) {
@@ -3868,6 +4488,12 @@ redoBtn.addEventListener("click", redoDelete);
 deleteSelectionBtn.addEventListener("click", deleteSelectedSplats);
 analyzeFloatersBtn.addEventListener("click", analyzeFloatingSplats);
 applyFloaterFilterBtn.addEventListener("click", applyFloatingSplatFilter);
+debugMapBBoxBtn.addEventListener("click", debugMapBBox);
+applyMapBBoxBtn.addEventListener("click", applyMapBBoxFilter);
+debugBacksideSurfaceBtn.addEventListener("click", debugBacksideSurface);
+debugBacksideDepthBtn.addEventListener("click", debugBacksideDepth);
+analyzeBacksideBtn.addEventListener("click", analyzeBacksideFloaters);
+applyBacksideFilterBtn.addEventListener("click", applyBacksideFloaterFilter);
 for (const input of [
   cleanupScalePercentileInput,
   cleanupMinScaleRatioInput,
@@ -3878,8 +4504,44 @@ for (const input of [
   input.addEventListener("input", () => {
     editState.cleanupCandidateCount = 0;
     editState.cleanupLastStats = null;
+    editState.backsideCleanupCandidateCount = 0;
+    editState.backsideCleanupLastResult = null;
     if (editState.ready) {
       setUiMessage("cleanupStatus", "cleanup.status.ready");
+    }
+    updateEditUi();
+  });
+}
+for (const input of [
+  mapBBoxPercentileInput,
+  mapBBoxMarginInput,
+  mapBBoxExtentFactorInput
+]) {
+  input.addEventListener("input", () => {
+    editState.mapCleanupCandidateCount = 0;
+    editState.mapCleanupLastResult = null;
+    editState.backsideCleanupCandidateCount = 0;
+    editState.backsideCleanupLastResult = null;
+    if (editState.ready) {
+      setUiMessage("mapCleanupStatus", "mapCleanup.status.ready");
+      setUiMessage("backsideCleanupStatus", "backsideCleanup.status.ready");
+    }
+    updateEditUi();
+  });
+}
+for (const input of [
+  backsideGridResolutionInput,
+  backsideMinCellSamplesInput,
+  backsideSurfacePercentileInput,
+  backsideDepthRatioInput,
+  backsideExtentFactorInput,
+  backsideDirectionSelect
+]) {
+  input.addEventListener("input", () => {
+    editState.backsideCleanupCandidateCount = 0;
+    editState.backsideCleanupLastResult = null;
+    if (editState.ready) {
+      setUiMessage("backsideCleanupStatus", "backsideCleanup.status.ready");
     }
     updateEditUi();
   });

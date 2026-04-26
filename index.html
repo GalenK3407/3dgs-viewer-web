@@ -150,7 +150,8 @@
     }
     #editPanel h3 { margin: 0 0 8px 0; font-size: 15px; color: #ffbb44; }
     #editPanel label { display: block; margin: 6px 0 2px; }
-    #editPanel input {
+    #editPanel input,
+    #editPanel select {
       width: 100%; padding: 4px; margin-bottom: 4px;
       background: #333; color: white; border: 1px solid #666; border-radius: 4px;
       box-sizing: border-box;
@@ -185,11 +186,22 @@
       font-size: 11px;
       color: #c6d0d6;
     }
-    .cleanupGrid input {
+    .cleanupGrid input,
+    .cleanupGrid select {
       margin-top: 2px;
       margin-bottom: 0;
     }
-    #cleanupStatus {
+    .cleanupSectionTitle {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+      font-weight: 700;
+      color: #d9e3ea;
+    }
+    #cleanupStatus,
+    #mapCleanupStatus,
+    #backsideCleanupStatus {
       margin-top: 6px;
       font-size: 12px;
       color: #aaa;
@@ -396,6 +408,9 @@
     #selectionCount,
     #deletedCount,
     #saveStatus,
+    #cleanupStatus,
+    #mapCleanupStatus,
+    #backsideCleanupStatus,
     #exportStatus {
       font-variant-numeric: tabular-nums;
     }
@@ -519,6 +534,7 @@
         <button id="redoBtn" data-i18n="edit.redo">Redo (Ctrl+Y)</button>
         <button id="deleteSelectionBtn" data-i18n="edit.deleteSelection">Delete Selected (Del)</button>
       </div>
+      <div class="cleanupSectionTitle" data-i18n="cleanup.floatersTitle">Floating Splat Filter</div>
       <div class="cleanupGrid">
         <label for="cleanupScalePercentileInput">
           <span data-i18n="cleanup.scalePercentile">Scale Percentile</span>
@@ -546,6 +562,67 @@
         <button id="applyFloaterFilterBtn" data-i18n="cleanup.apply">Apply Filter</button>
       </div>
       <div id="cleanupStatus"></div>
+      <div class="cleanupSectionTitle" data-i18n="mapCleanup.title">BBox Filter</div>
+      <div class="cleanupGrid">
+        <label for="mapBBoxPercentileInput">
+          <span data-i18n="mapCleanup.bboxPercentile">BBox Trim %</span>
+          <input id="mapBBoxPercentileInput" type="number" value="2" min="0" max="20" step="0.1">
+        </label>
+        <label for="mapBBoxMarginInput">
+          <span data-i18n="mapCleanup.bboxMargin">BBox Margin Ratio</span>
+          <input id="mapBBoxMarginInput" type="number" value="0.02" min="0" max="0.5" step="0.001">
+        </label>
+        <label for="mapBBoxExtentFactorInput">
+          <span data-i18n="mapCleanup.extentFactor">BBox Extent Factor</span>
+          <input id="mapBBoxExtentFactorInput" type="number" value="2.5" min="0" max="10" step="0.1">
+        </label>
+      </div>
+      <div class="toolRow">
+        <button id="debugMapBBoxBtn" data-i18n="mapCleanup.debugBBox">Analyze BBox</button>
+        <button id="applyMapBBoxBtn" data-i18n="mapCleanup.apply">Apply BBox Filter</button>
+      </div>
+      <div id="mapCleanupStatus"></div>
+      <div class="cleanupSectionTitle" data-i18n="backsideCleanup.title">Backside Floater Filter</div>
+      <div class="cleanupGrid">
+        <label for="backsideGridResolutionInput">
+          <span data-i18n="backsideCleanup.gridResolution">Grid Resolution</span>
+          <input id="backsideGridResolutionInput" type="number" value="160" min="16" max="512" step="1">
+        </label>
+        <label for="backsideMinCellSamplesInput">
+          <span data-i18n="backsideCleanup.minCellSamples">Cell Min Samples</span>
+          <input id="backsideMinCellSamplesInput" type="number" value="12" min="1" max="1000" step="1">
+        </label>
+        <label for="backsideSurfacePercentileInput">
+          <span data-i18n="backsideCleanup.surfacePercentile">Surface Percentile</span>
+          <input id="backsideSurfacePercentileInput" type="number" value="50" min="1" max="99" step="1">
+        </label>
+        <label for="backsideDepthRatioInput">
+          <span data-i18n="backsideCleanup.depthRatio">Backside Depth Ratio</span>
+          <input id="backsideDepthRatioInput" type="number" value="0.1" min="0.0001" max="0.5" step="0.001">
+        </label>
+        <label for="backsideExtentFactorInput">
+          <span data-i18n="backsideCleanup.extentFactor">Splat Extent Factor</span>
+          <input id="backsideExtentFactorInput" type="number" value="2.5" min="0" max="10" step="0.1">
+        </label>
+        <label for="backsideDirectionSelect">
+          <span data-i18n="backsideCleanup.direction">Backside Direction</span>
+          <select id="backsideDirectionSelect">
+            <option value="auto" selected data-i18n="backsideCleanup.direction.auto">Auto</option>
+            <option value="lower" data-i18n="backsideCleanup.direction.lower">Lower Y</option>
+            <option value="higher" data-i18n="backsideCleanup.direction.higher">Higher Y</option>
+            <option value="both" data-i18n="backsideCleanup.direction.both">Both Sides</option>
+          </select>
+        </label>
+      </div>
+      <div class="toolRow">
+        <button id="debugBacksideSurfaceBtn" data-i18n="backsideCleanup.debugSurface">Debug Surface</button>
+        <button id="debugBacksideDepthBtn" data-i18n="backsideCleanup.debugDepth">Debug Backside</button>
+      </div>
+      <div class="toolRow">
+        <button id="analyzeBacksideBtn" data-i18n="backsideCleanup.analyze">Analyze Backside</button>
+        <button id="applyBacksideFilterBtn" data-i18n="backsideCleanup.apply">Apply Backside Filter</button>
+      </div>
+      <div id="backsideCleanupStatus"></div>
       <div class="toolRow">
         <button id="saveSceneBtn">Save .ply (Ctrl+S)</button>
       </div>
@@ -557,6 +634,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="./viewer.js?v=20260424-floater-filter"></script>
+  <script type="module" src="./viewer.js?v=20260426-backside-filter"></script>
 </body>
 </html>
